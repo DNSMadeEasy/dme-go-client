@@ -31,7 +31,13 @@ func (record *ManagedDNSRecordActions) ToMap() map[string]interface{} {
 
 	log.Println("Inside model: recordmap values: ", recordMap)
 	log.Println("RECORD VAlues inside model: ", record)
-	A(recordMap, "name", record.Name)
+
+	if record.Name == "@" {
+		recordMap["name"] = ""
+	} else {
+		A(recordMap, "name", record.Name)
+	}
+
 	A(recordMap, "id", record.IdUpdate)
 	A(recordMap, "value", record.Value)
 	A(recordMap, "type", record.Type)
