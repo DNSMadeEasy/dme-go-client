@@ -39,17 +39,20 @@ type Option func(*Client)
 
 func Sandbox(sandbox bool) Option {
 	return func(client *Client) {
+                log.Println("set sandbox :", sandbox)
 		client.sandbox = sandbox
 	}
 }
 func Insecure(insecure bool) Option {
 	return func(client *Client) {
+                log.Println("set insecure :", insecure)
 		client.insecure = insecure
 	}
 }
 
 func ProxyUrl(pUrl string) Option {
 	return func(client *Client) {
+                log.Println("set proxyurl :", pUrl)
 		client.proxyurl = pUrl
 	}
 }
@@ -148,7 +151,6 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 
 func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 
-	log.Println("sandbox :", c.sandbox)
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 
 	req, err := c.makeRequest("GET", url, nil)
