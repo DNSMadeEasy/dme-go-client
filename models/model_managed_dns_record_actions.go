@@ -5,7 +5,7 @@ import (
 )
 
 type ManagedDNSRecordActions struct {
-	Name           string `json:"name,omitempty"`
+	Name           string `json:"name"`
 	IdUpdate       string `json:"id,omitempty"`
 	Value          string `json:"value,omitempty"`
 	Type           string `json:"type,omitempty"`
