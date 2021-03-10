@@ -13,8 +13,4 @@ func A(data map[string]interface{}, key string, value interface{}) {
 	if value == 0 {
 		data[key] = ""
 	}
-
-	if value == "" {
-		data[key] = ""
-	}
 }
