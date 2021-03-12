@@ -23,7 +23,9 @@ There are no additional dependancies needed to be installed.
 import the client in your go application and retrive the client object by calling client.GetClient() method.
 ```golang
 import github.com/DNSMadeEasy/dme-go-client/client
-client.GetClient("apikey", "secretkey", client.Insecure(true/false))
+client.GetClient("apikey", "secretkey")
+// or
+client.GetClient("apikey", "secretkey", client.Insecure(true/false),client.ProxyUrl(string),client.Sandbox(true/false))
 ```
 
 
