@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"crypto/tls"
@@ -17,16 +18,19 @@ import (
 
 	"github.com/DNSMadeEasy/dme-go-client/container"
 	"github.com/DNSMadeEasy/dme-go-client/models"
+	"golang.org/x/time/rate"
 )
 
 const BaseURL = "https://api.dnsmadeeasy.com/V2.0/"
 
 type Client struct {
-	httpclient *http.Client
-	apiKey     string //Required
-	secretKey  string //Required
-	insecure   bool   //Optional
-	proxyurl   string //Optional
+	httpclient  *http.Client
+	apiKey      string //Required
+	secretKey   string //Required
+	insecure    bool   //Optional
+	proxyurl    string //Optional
+	rateLimiter *rate.Limiter
+	maxRetries  int
 }
 
 //singleton implementation of a client
@@ -51,6 +55,9 @@ func initClient(apiKey, secretKey string, options ...Option) *Client {
 	client := &Client{
 		apiKey:    apiKey,
 		secretKey: secretKey,
+		// 0.5 rate corresponds to rate limit of 150 req/5min
+		rateLimiter: rate.NewLimiter(rate.Limit(0.5), 1),
+		maxRetries:  150,
 	}
 	for _, option := range options {
 		option(client)
@@ -117,7 +124,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	}
 	log.Println("Request made : ", req)
 
-	resp, err := c.httpclient.Do(req)
+	resp, err := c.sendRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -146,9 +153,9 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 	}
 	log.Println("Request for get : ", req)
 
-	resp, err1 := c.httpclient.Do(req)
-	if err1 != nil {
-		return nil, err1
+	resp, err := c.sendRequest(req)
+	if err != nil {
+		return nil, err
 	}
 	log.Println("response from get domain :", resp)
 
@@ -179,7 +186,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		return nil, err
 	}
 
-	resp, err := c.httpclient.Do(req)
+	resp, err := c.sendRequest(req)
 	if err != nil {
 		return nil, err
 	}
@@ -210,11 +217,12 @@ func (c *Client) Delete(endpoint string) error {
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 
 	req, err := c.makeRequest("DELETE", url, nil)
+	log.Println(req)
 	if err != nil {
 		return err
 	}
 
-	resp, err := c.httpclient.Do(req)
+	resp, err := c.sendRequest(req)
 	if err != nil {
 		return err
 	}
@@ -303,4 +311,25 @@ func (c *Client) makeRequest(method, endpoint string, con *container.Container) 
 	req.Header.Set("x-dnsme-requestDate", time)
 
 	return req, nil
+}
+
+func (c *Client) sendRequest(req *http.Request) (*http.Response, error) {
+	var resp *http.Response
+	var err error
+	for attempt := 0; attempt < c.maxRetries; attempt++ {
+		err = c.rateLimiter.Wait(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("Rate Limit Error: %w", err)
+		}
+
+		resp, err = c.httpclient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if err != nil || resp.StatusCode == http.StatusTooManyRequests {
+			continue
+		}
+		break
+	}
+	return resp, err
 }
