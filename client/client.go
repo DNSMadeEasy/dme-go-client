@@ -147,6 +147,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 		if respErr != nil {
 			return nil, respErr
 		}
+		break
 	}
 	return respObj, nil
 }
@@ -242,6 +243,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		if respErr != nil {
 			return nil, respErr
 		}
+		break
 	}
 	return respObj, nil
 }
