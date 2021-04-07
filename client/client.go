@@ -111,6 +111,7 @@ func (c *Client) configProxy(transport *http.Transport) *http.Transport {
 }
 
 func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, error) {
+	var respObj *container.Container
 	jsonPayload, err := c.PrepareModel(obj)
 	if err != nil {
 		return nil, err
@@ -118,97 +119,129 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	log.Println("Payload is :", jsonPayload)
 
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
-	req, err := c.makeRequest("POST", url, jsonPayload)
-	if err != nil {
-		return nil, err
-	}
-	log.Println("Request made : ", req)
 
-	resp, err := c.sendRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	log.Println("Response is :", resp)
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	respObj, err := container.ParseJSON(bodyBytes)
-	if err != nil {
-		return nil, err
-	}
+	for attempt := 0; attempt < c.maxRetries; attempt++ {
+		err := c.rateLimiter.Wait(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		req, err := c.makeRequest("POST", url, jsonPayload)
+		if err != nil {
+			return nil, err
+		}
+		log.Println("Request made : ", req)
 
-	respErr := checkForErrors(resp, respObj)
-	if respErr != nil {
-		return nil, respErr
+		resp, err := c.httpclient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		log.Println("Response is :", resp)
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		respObj, err = container.ParseJSON(bodyBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		respErr := checkForErrors(resp, respObj)
+		if respErr != nil {
+			return nil, respErr
+		}
 	}
 	return respObj, nil
 }
 
 func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 
+	var respObj *container.Container
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 
-	req, err := c.makeRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	log.Println("Request for get : ", req)
+	for attempt := 0; attempt < c.maxRetries; attempt++ {
+		err := c.rateLimiter.Wait(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("Rate Limit Error: %w", err)
+		}
 
-	resp, err := c.sendRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	log.Println("response from get domain :", resp)
+	        req, err := c.makeRequest("GET", url, nil)
+	        if err != nil {
+	        	return nil, err
+	        }
+	        log.Println("Request for get : ", req)
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	respObj, err := container.ParseJSON(bodyBytes)
-	if err != nil {
-		return nil, err
-	}
+		resp, err := c.httpclient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		log.Println("response from get domain :", resp)
 
-	respErr := checkForErrors(resp, respObj)
-	if respErr != nil {
-		return nil, respErr
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		respObj, err = container.ParseJSON(bodyBytes)
+		if err != nil {
+			return nil, err
+		}
+
+		if isRateLimited(respObj) {
+			continue
+		}
+
+		respErr := checkForErrors(resp, respObj)
+		if respErr != nil {
+			return nil, respErr
+		}
+		break
 	}
 	return respObj, nil
 }
 
 func (c *Client) Update(obj models.Model, endpoint string) (*container.Container, error) {
+	var respObj *container.Container
 	jsonPayload, err := c.PrepareModel(obj)
 	if err != nil {
 		return nil, err
 	}
 
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
-	req, err := c.makeRequest("PUT", url, jsonPayload)
-	log.Println(req)
-	if err != nil {
-		return nil, err
-	}
+	for attempt := 0; attempt < c.maxRetries; attempt++ {
 
-	resp, err := c.sendRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	log.Println(resp)
+		err = c.rateLimiter.Wait(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("Rate Limit Error: %w", err)
+		}
 
-	if resp.StatusCode == 200 {
-		return nil, nil
-	}
+		req, err := c.makeRequest("PUT", url, jsonPayload)
+		log.Println(req)
+		if err != nil {
+			return nil, err
+		}
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	resp.Body.Close()
-	respObj, err := container.ParseJSON(bodyBytes)
-	if err != nil {
-		return nil, err
-	}
+		resp, err := c.httpclient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+	
+		if resp.StatusCode == 200 {
+			return nil, nil
+		}
+	
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		resp.Body.Close()
+		respObj, err = container.ParseJSON(bodyBytes)
+		if err != nil {
+			return nil, err
+		}
+	
+		if isRateLimited(respObj) {
+			continue
+		}
 
-	respErr := checkForErrors(resp, respObj)
-	if respErr != nil {
-		return nil, respErr
+		respErr := checkForErrors(resp, respObj)
+		if respErr != nil {
+			return nil, respErr
+		}
 	}
 	return respObj, nil
 }
@@ -216,31 +249,44 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 func (c *Client) Delete(endpoint string) error {
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 
-	req, err := c.makeRequest("DELETE", url, nil)
-	log.Println(req)
-	if err != nil {
-		return err
-	}
+	for attempt := 0; attempt < c.maxRetries; attempt++ {
 
-	resp, err := c.sendRequest(req)
-	if err != nil {
-		return err
-	}
+		err := c.rateLimiter.Wait(context.Background())
+		if err != nil {
+			return fmt.Errorf("Rate Limit Error: %w", err)
+		}
 
-	if resp.StatusCode == 200 {
-		return nil
-	}
+		req, err := c.makeRequest("DELETE", url, nil)
+		log.Println(req)
+		if err != nil {
+			return err
+		}
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	respObj, err := container.ParseJSON(bodyBytes)
-	if err != nil {
-		return err
-	}
+		resp, err := c.httpclient.Do(req)
+		if err != nil {
+			return err
+		}
 
-	respErr := checkForErrors(resp, respObj)
-	if respErr != nil {
-		return respErr
+		if resp.StatusCode == 200 {
+			return nil
+		}
+
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		respObj, err := container.ParseJSON(bodyBytes)
+		if err != nil {
+			return err
+		}
+
+		if isRateLimited(respObj) {
+			continue
+		}
+
+		respErr := checkForErrors(resp, respObj)
+		if respErr != nil {
+			return respErr
+		}
+		break
 	}
 	return nil
 }
@@ -313,23 +359,13 @@ func (c *Client) makeRequest(method, endpoint string, con *container.Container) 
 	return req, nil
 }
 
-func (c *Client) sendRequest(req *http.Request) (*http.Response, error) {
-	var resp *http.Response
-	var err error
-	for attempt := 0; attempt < c.maxRetries; attempt++ {
-		err = c.rateLimiter.Wait(context.Background())
-		if err != nil {
-			return nil, fmt.Errorf("Rate Limit Error: %w", err)
-		}
-
-		resp, err = c.httpclient.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		if err != nil || resp.StatusCode == http.StatusTooManyRequests {
-			continue
-		}
-		break
+func isRateLimited(con *container.Container) (bool) {
+	error_detail, ok := con.Search("error").Index(0).Data().(string)
+	if !ok {
+		return false
 	}
-	return resp, err
+	if error_detail == "Rate limit exceeded" {
+		return true
+	}
+	return false
 }
