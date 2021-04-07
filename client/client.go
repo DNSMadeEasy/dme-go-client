@@ -162,11 +162,11 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 			return nil, fmt.Errorf("Rate Limit Error: %w", err)
 		}
 
-	        req, err := c.makeRequest("GET", url, nil)
-	        if err != nil {
-	        	return nil, err
-	        }
-	        log.Println("Request for get : ", req)
+		req, err := c.makeRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		log.Println("Request for get : ", req)
 
 		resp, err := c.httpclient.Do(req)
 		if err != nil {
@@ -219,11 +219,11 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		if err != nil {
 			return nil, err
 		}
-	
+
 		if resp.StatusCode == 200 {
 			return nil, nil
 		}
-	
+
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
@@ -233,7 +233,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		if err != nil {
 			return nil, err
 		}
-	
+
 		if isRateLimited(respObj) {
 			continue
 		}
@@ -359,7 +359,7 @@ func (c *Client) makeRequest(method, endpoint string, con *container.Container) 
 	return req, nil
 }
 
-func isRateLimited(con *container.Container) (bool) {
+func isRateLimited(con *container.Container) bool {
 	error_detail, ok := con.Search("error").Index(0).Data().(string)
 	if !ok {
 		return false
