@@ -128,6 +128,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	if err != nil {
 		return nil, err
 	}
+	log.Println("Respons body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
@@ -158,6 +159,7 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 	if err != nil {
 		return nil, err
 	}
+	log.Println("Respons body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
@@ -198,6 +200,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 	if err != nil {
 		return nil, err
 	}
+	log.Println("Respons body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
@@ -229,6 +232,7 @@ func (c *Client) Delete(endpoint string) error {
 	if err != nil {
 		return err
 	}
+	log.Println("Respons body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
