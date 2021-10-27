@@ -164,7 +164,7 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Println("response from get domain :", resp)
+		log.Println("response from get domain :", resp, "\n", resp.Header.Get("x-dnsme-requestsRemaining"))
 		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
