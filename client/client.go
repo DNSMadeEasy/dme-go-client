@@ -31,7 +31,7 @@ type Client struct {
 }
 
 //singleton implementation of a client
-var clietnImpl *Client
+var clientImpl *Client
 
 type Option func(*Client)
 
@@ -71,8 +71,11 @@ func initClient(apiKey, secretKey string, options ...Option) *Client {
 
 //Returns a singleton
 func GetClient(apiKey, secretKey string, options ...Option) *Client {
-	clietnImpl = initClient(apiKey, secretKey, options...)
-	return clietnImpl
+	if clientImpl != nil {
+		return clientImpl
+	}
+	clientImpl = initClient(apiKey, secretKey, options...)
+	return clientImpl
 }
 
 func (c *Client) useInsecureHTTPClient(insecure bool) *http.Transport {
@@ -162,10 +165,11 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 		log.Println("Request for get : ", req)
 
 		resp, err = c.httpclient.Do(req)
+		log.Println("response from get domain :", resp)
 		if err != nil {
 			return nil, err
 		}
-		log.Println("response from get domain :", resp)
+		// log.Println("response from get domain :", resp)
 		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
@@ -181,7 +185,7 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Respons body is :", respObj)
+	log.Println("Response body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
@@ -205,10 +209,10 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		}
 
 		resp, err = c.httpclient.Do(req)
+		log.Println("response for PUT: "resp)
 		if err != nil {
 			return nil, err
 		}
-		log.Println(resp)
 		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
@@ -231,7 +235,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 	if err != nil {
 		return nil, err
 	}
-	log.Println("Respons body is :", respObj)
+	log.Println("Response body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
