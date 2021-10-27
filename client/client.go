@@ -121,10 +121,11 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 		log.Println("Request made : ", req)
 
 		resp, err = c.httpclient.Do(req)
+		log.Println("Response is :", resp)
 		if err != nil {
 			return nil, err
 		}
-		log.Println("Response is :", resp)
+		
 		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
