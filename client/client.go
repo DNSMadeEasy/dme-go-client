@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"4d63.com/tz"
@@ -111,35 +112,35 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	log.Println("Payload is :", jsonPayload)
 
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
-	var req *http.Request
 	var resp *http.Response
-	var respObj *container.Container
 	for true {
-		req, err = c.makeRequest("POST", url, jsonPayload)
-		log.Println(req)
+		req, err := c.makeRequest("POST", url, jsonPayload)
 		if err != nil {
 			return nil, err
 		}
+		log.Println("Request made : ", req)
 
 		resp, err = c.httpclient.Do(req)
 		if err != nil {
 			return nil, err
 		}
-		log.Println(resp)
 		log.Println("Response is :", resp)
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		respObj, err := container.ParseJSON(bodyBytes)
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode == 400 && checkForErrors(resp, respObj) == fmt.Errorf("Rate limit exceeded") {
-			timeReq := 1/2 + 5
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
+			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
 		} else {
 			break
 		}
 	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	respObj, err := container.ParseJSON(bodyBytes)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("Respons body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
@@ -151,34 +152,35 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
-
 	var resp *http.Response
-	var respObj *container.Container
 	for true {
 		req, err := c.makeRequest("GET", url, nil)
 		if err != nil {
 			return nil, err
 		}
-		log.Println("In GET by ID :", req)
+		log.Println("Request for get : ", req)
 
 		resp, err = c.httpclient.Do(req)
 		if err != nil {
 			return nil, err
 		}
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		respObj, err = container.ParseJSON(bodyBytes)
-		if err != nil {
-			return nil, err
-		}
-		log.Println("Response for Get: ", resp)
-		if resp.StatusCode == 400 && checkForErrors(resp, respObj) == fmt.Errorf("Rate limit exceeded") {
-			timeReq := 1/2 + 5
+		log.Println("response from get domain :", resp)
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
+			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
 		} else {
 			break
 		}
 	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	respObj, err := container.ParseJSON(bodyBytes)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("Respons body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
@@ -192,10 +194,8 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 	if err != nil {
 		return nil, err
 	}
-
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	var resp *http.Response
-	var respObj *container.Container
+	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	for true {
 		req, err := c.makeRequest("PUT", url, jsonPayload)
 		log.Println(req)
@@ -207,29 +207,30 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		if err != nil {
 			return nil, err
 		}
-
-		if resp.StatusCode == 200 {
-			return nil, nil
-		}
-
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		resp.Body.Close()
-		respObj, err := container.ParseJSON(bodyBytes)
-		if err != nil {
-			return nil, err
-		}
-
 		log.Println(resp)
-		if resp.StatusCode == 400 && checkForErrors(resp, respObj) == fmt.Errorf("Rate limit exceeded") {
-			timeReq := 1/2 + 5
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
+			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
 		} else {
 			break
 		}
 	}
+
+	if resp.StatusCode == 200 {
+		return nil, nil
+	}
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	resp.Body.Close()
+	respObj, err := container.ParseJSON(bodyBytes)
+	if err != nil {
+		return nil, err
+	}
+	log.Println("Respons body is :", respObj)
 
 	respErr := checkForErrors(resp, respObj)
 	if respErr != nil {
@@ -240,43 +241,40 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 
 func (c *Client) Delete(endpoint string) error {
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
-
 	var resp *http.Response
 	for true {
 		req, err := c.makeRequest("DELETE", url, nil)
 		if err != nil {
 			return err
 		}
-		log.Println("request for delete : ", req)
 
 		resp, err = c.httpclient.Do(req)
 		if err != nil {
 			return err
 		}
-		log.Println("Response from server for delete : ", resp)
 
-		if resp.StatusCode == 200 {
-			return nil
-		}
-
-		bodyBytes, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		respObj, err := container.ParseJSON(bodyBytes)
-		if err != nil {
-			return err
-		}
-
-		respErr := checkForErrors(resp, respObj)
-		if respErr != nil {
-			return respErr
-		}
-
-		if resp.StatusCode == 400 && checkForErrors(resp, respObj) == fmt.Errorf("Rate limit exceeded") {
-			timeReq := 1/2 + 5
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
+			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
 		} else {
 			break
 		}
+	}
+	if resp.StatusCode == 200 {
+		return nil
+	}
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	respObj, err := container.ParseJSON(bodyBytes)
+	if err != nil {
+		return err
+	}
+	log.Println("Respons body is :", respObj)
+
+	respErr := checkForErrors(resp, respObj)
+	if respErr != nil {
+		return respErr
 	}
 	return nil
 }
