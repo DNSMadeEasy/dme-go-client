@@ -125,7 +125,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 			return nil, err
 		}
 		log.Println("Response is :", resp)
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
@@ -164,8 +164,8 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Println("response from get domain :", resp, "\n", resp.Header.Get("x-dnsme-requestsRemaining"))
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+		log.Println("response from get domain :", resp)
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
@@ -208,7 +208,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 			return nil, err
 		}
 		log.Println(resp)
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
@@ -253,7 +253,7 @@ func (c *Client) Delete(endpoint string) error {
 			return err
 		}
 
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 0 {
+		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
 			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
 			timeReq := 300/reqLimit + 5
 			time.Sleep(time.Duration(timeReq) * time.Second)
