@@ -23,16 +23,18 @@ import (
 const BaseURL = "https://api.dnsmadeeasy.com/V2.0/"
 
 type Client struct {
-	httpclient *http.Client
-	apiKey     string //Required
-	secretKey  string //Required
-	insecure   bool   //Optional
-	proxyurl   string //Optional
+	httpclient    *http.Client
+	apiKey        string //Required
+	secretKey     string //Required
+	insecure      bool   //Optional
+	proxyurl      string //Optional
+	RatelimitTime int64
 }
 
 //singleton implementation of a client
 var clientImpl *Client
 
+//get first
 type Option func(*Client)
 
 func Insecure(insecure bool) Option {
@@ -126,13 +128,13 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 		resp, err = c.httpclient.Do(req)
 		log.Println("Response is :", resp)
 		if err != nil {
-			return nil, err
-		}
-		
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
-			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
-			timeReq := 300/reqLimit + 5
-			time.Sleep(time.Duration(timeReq) * time.Second)
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
+		} else if requestsRemaining, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && requestsRemaining == 0 {
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
 		} else {
 			break
 		}
@@ -166,14 +168,15 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 
 		resp, err = c.httpclient.Do(req)
 		log.Println("response from get domain :", resp)
+
 		if err != nil {
-			return nil, err
-		}
-		// log.Println("response from get domain :", resp)
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
-			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
-			timeReq := 300/reqLimit + 5
-			time.Sleep(time.Duration(timeReq) * time.Second)
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
+		} else if requestsRemaining, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && requestsRemaining == 0 {
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
 		} else {
 			break
 		}
@@ -209,14 +212,15 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		}
 
 		resp, err = c.httpclient.Do(req)
-		log.Println("response for PUT: "resp)
+		log.Println("response for PUT: ", resp)
 		if err != nil {
-			return nil, err
-		}
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
-			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
-			timeReq := 300/reqLimit + 5
-			time.Sleep(time.Duration(timeReq) * time.Second)
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
+		} else if requestsRemaining, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && requestsRemaining == 0 {
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
 		} else {
 			break
 		}
@@ -255,13 +259,13 @@ func (c *Client) Delete(endpoint string) error {
 
 		resp, err = c.httpclient.Do(req)
 		if err != nil {
-			return err
-		}
-
-		if remainingReq, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && remainingReq < 3 {
-			reqLimit, _ := strconv.ParseFloat(resp.Header.Get("x-dnsme-requestLimit"), 64)
-			timeReq := 300/reqLimit + 5
-			time.Sleep(time.Duration(timeReq) * time.Second)
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
+		} else if requestsRemaining, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining")); resp.StatusCode == 400 && requestsRemaining == 0 {
+			log.Println("waiting until more API calls can be done")
+			sleepDuration := 5
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
 		} else {
 			break
 		}
