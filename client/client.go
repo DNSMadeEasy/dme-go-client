@@ -20,14 +20,18 @@ import (
 	"github.com/DNSMadeEasy/dme-go-client/models"
 )
 
-const BaseURL = "https://api.dnsmadeeasy.com/V2.0/"
+const (
+	BaseURL        = "https://api.dnsmadeeasy.com/V2.0/"
+	SandboxBaseURL = "https://api.sandbox.dnsmadeeasy.com/V2.0/"
+)
 
 type Client struct {
-	httpclient    *http.Client
-	apiKey        string //Required
-	secretKey     string //Required
-	insecure      bool   //Optional
-	proxyurl      string //Optional
+	httpclient *http.Client
+	apiKey     string //Required
+	secretKey  string //Required
+	insecure   bool   //Optional
+	proxyurl   string //Optional
+	baseurl    string //Optional
 }
 
 //singleton implementation of a client
@@ -48,11 +52,20 @@ func ProxyUrl(pUrl string) Option {
 	}
 }
 
+func UseSandbox(useSandbox bool) Option {
+	return func(client *Client) {
+		if useSandbox {
+			client.baseurl = SandboxBaseURL
+		}
+	}
+}
+
 func initClient(apiKey, secretKey string, options ...Option) *Client {
 	//existing information about client
 	client := &Client{
 		apiKey:    apiKey,
 		secretKey: secretKey,
+		baseurl:   BaseURL,
 	}
 	for _, option := range options {
 		option(client)
@@ -115,7 +128,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	}
 	log.Println("Payload is :", jsonPayload)
 
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
+	url := fmt.Sprintf("%s%s", c.baseurl, endpoint)
 	var resp *http.Response
 	for true {
 		req, err := c.makeRequest("POST", url, jsonPayload)
@@ -156,7 +169,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 
 func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
+	url := fmt.Sprintf("%s%s", c.baseurl, endpoint)
 	var resp *http.Response
 	for true {
 		req, err := c.makeRequest("GET", url, nil)
@@ -202,7 +215,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		return nil, err
 	}
 	var resp *http.Response
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
+	url := fmt.Sprintf("%s%s", c.baseurl, endpoint)
 	for true {
 		req, err := c.makeRequest("PUT", url, jsonPayload)
 		log.Println(req)
@@ -248,7 +261,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 }
 
 func (c *Client) Delete(endpoint string) error {
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
+	url := fmt.Sprintf("%s%s", c.baseurl, endpoint)
 	var resp *http.Response
 	for true {
 		req, err := c.makeRequest("DELETE", url, nil)

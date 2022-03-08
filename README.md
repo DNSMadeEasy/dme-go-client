@@ -10,7 +10,7 @@ Use `go get` to retrieve the SDK to add it to your `GOPATH` workspace, or projec
 $go get github.com/DNSMadeEasy/dme-go-client
 ```
 
-There are no additional dependancies needed to be installed.
+There are no additional dependencies needed to be installed.
 
 ## Overview ##
   
