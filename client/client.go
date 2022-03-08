@@ -20,7 +20,10 @@ import (
 	"github.com/DNSMadeEasy/dme-go-client/models"
 )
 
-const BaseURL = "https://api.dnsmadeeasy.com/V2.0/"
+const (
+	BaseURL        = "https://api.dnsmadeeasy.com/V2.0/"
+	SandboxBaseURL = "https://api.sandbox.dnsmadeeasy.com/V2.0/"
+)
 
 type Client struct {
 	httpclient *http.Client
@@ -49,9 +52,11 @@ func ProxyUrl(pUrl string) Option {
 	}
 }
 
-func BaseApiUrl(url string) Option {
+func UseSandbox(useSandbox bool) Option {
 	return func(client *Client) {
-		client.baseurl = url
+		if useSandbox {
+			client.baseurl = SandboxBaseURL
+		}
 	}
 }
 
