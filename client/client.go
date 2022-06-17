@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"4d63.com/tz"
@@ -23,15 +24,17 @@ import (
 const BaseURL = "https://api.dnsmadeeasy.com/V2.0/"
 
 type Client struct {
-	httpclient    *http.Client
-	apiKey        string //Required
-	secretKey     string //Required
-	insecure      bool   //Optional
-	proxyurl      string //Optional
+	httpclient *http.Client
+	apiKey     string //Required
+	secretKey  string //Required
+	insecure   bool   //Optional
+	proxyurl   string //Optional
 }
 
-//singleton implementation of a client
-var clientImpl *Client
+var (
+	clientImpl *Client    //singleton implementation of a client
+	saveMutex  sync.Mutex //mutex for save method
+)
 
 //get first
 type Option func(*Client)
@@ -109,6 +112,7 @@ func (c *Client) configProxy(transport *http.Transport) *http.Transport {
 }
 
 func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, error) {
+	saveMutex.Lock()
 	jsonPayload, err := c.PrepareModel(obj)
 	if err != nil {
 		return nil, err
@@ -151,6 +155,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	if respErr != nil {
 		return nil, respErr
 	}
+	saveMutex.Unlock()
 	return respObj, nil
 }
 
