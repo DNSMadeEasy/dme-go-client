@@ -33,7 +33,7 @@ type Client struct {
 
 var (
 	clientImpl *Client    //singleton implementation of a client
-	saveMutex  sync.Mutex //mutex for save method
+	mutex      sync.Mutex //mutex for save method
 )
 
 //get first
@@ -121,7 +121,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	var resp *http.Response
 	for true {
-		saveMutex.Lock()
+		mutex.Lock()
 		req, err := c.makeRequest("POST", url, jsonPayload)
 		if err != nil {
 			return nil, err
@@ -141,7 +141,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 		} else {
 			break
 		}
-		saveMutex.Unlock()
+		mutex.Unlock()
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -164,6 +164,7 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	var resp *http.Response
 	for true {
+		mutex.Lock()
 		req, err := c.makeRequest("GET", url, nil)
 		if err != nil {
 			return nil, err
@@ -184,6 +185,7 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 		} else {
 			break
 		}
+		mutex.Unlock()
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
@@ -209,6 +211,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 	var resp *http.Response
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	for true {
+		mutex.Lock()
 		req, err := c.makeRequest("PUT", url, jsonPayload)
 		log.Println(req)
 		if err != nil {
@@ -228,6 +231,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		} else {
 			break
 		}
+		mutex.Unlock()
 	}
 
 	if resp.StatusCode == 200 {
@@ -256,6 +260,7 @@ func (c *Client) Delete(endpoint string) error {
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	var resp *http.Response
 	for true {
+		mutex.Lock()
 		req, err := c.makeRequest("DELETE", url, nil)
 		if err != nil {
 			return err
@@ -273,6 +278,7 @@ func (c *Client) Delete(endpoint string) error {
 		} else {
 			break
 		}
+		mutex.Unlock()
 	}
 	if resp.StatusCode == 200 {
 		return nil
