@@ -112,7 +112,6 @@ func (c *Client) configProxy(transport *http.Transport) *http.Transport {
 }
 
 func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, error) {
-	saveMutex.Lock()
 	jsonPayload, err := c.PrepareModel(obj)
 	if err != nil {
 		return nil, err
@@ -122,6 +121,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	var resp *http.Response
 	for true {
+		saveMutex.Lock()
 		req, err := c.makeRequest("POST", url, jsonPayload)
 		if err != nil {
 			return nil, err
@@ -155,7 +155,6 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	if respErr != nil {
 		return nil, respErr
 	}
-	saveMutex.Unlock()
 	return respObj, nil
 }
 
