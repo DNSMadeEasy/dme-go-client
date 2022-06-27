@@ -141,6 +141,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 		} else {
 			break
 		}
+		saveMutex.Unlock()
 	}
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
