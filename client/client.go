@@ -13,6 +13,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"4d63.com/tz"
@@ -30,6 +31,7 @@ type Client struct {
 	secretKey  string //Required
 	insecure   bool   //Optional
 	proxyurl   string //Optional
+	mutex      sync.Mutex
 }
 
 //singleton implementation of a client
@@ -277,6 +279,7 @@ func (c *Client) doRequestWithRateLimit(method, endpoint string, con *container.
 	if err != nil {
 		return nil, err
 	}
+	c.mutex.Lock()
 	for {
 		hmac := getToken(c.apiKey, c.secretKey)
 		req.Header.Set("x-dnsme-hmac", hmac)
@@ -301,6 +304,7 @@ func (c *Client) doRequestWithRateLimit(method, endpoint string, con *container.
 		}
 		break
 	}
+	c.mutex.Unlock()
 	return resp, nil
 }
 
