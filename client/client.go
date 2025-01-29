@@ -24,21 +24,22 @@ import (
 
 var mutex sync.Mutex
 
-const BaseURL = "https://api.dnsmadeeasy.com/V2.0/"
-const SleepDuration = 5
+const baseURL = "https://api.dnsmadeeasy.com/V2.0"
+const sleepDuration = 5
 
 type Client struct {
 	httpclient *http.Client
-	apiKey     string //Required
-	secretKey  string //Required
-	insecure   bool   //Optional
-	proxyurl   string //Optional
+	apiKey     string // Required
+	secretKey  string // Required
+	insecure   bool   // Optional
+	proxyURL   string // Optional
+	baseURL    string // Optional
 }
 
-//singleton implementation of a client
+// Singleton implementation of a client
 var clientImpl *Client
 
-//get first
+// Get first
 type Option func(*Client)
 
 func Insecure(insecure bool) Option {
@@ -47,14 +48,20 @@ func Insecure(insecure bool) Option {
 	}
 }
 
-func ProxyUrl(pUrl string) Option {
+func ProxyURL(proxyURL string) Option {
 	return func(client *Client) {
-		client.proxyurl = pUrl
+		client.proxyURL = proxyURL
+	}
+}
+
+func BaseURL(baseURL string) Option {
+	return func(client *Client) {
+		client.baseURL = baseURL
 	}
 }
 
 func initClient(apiKey, secretKey string, options ...Option) *Client {
-	//existing information about client
+	// Existing information about client
 	client := &Client{
 		apiKey:    apiKey,
 		secretKey: secretKey,
@@ -63,25 +70,32 @@ func initClient(apiKey, secretKey string, options ...Option) *Client {
 		option(client)
 	}
 
-	//Setting up the HTTP client for the API call
+	// Setting up the HTTP client for the API call
 	var transport *http.Transport
 	transport = client.useInsecureHTTPClient(client.insecure)
-	if client.proxyurl != "" {
+	if client.proxyURL != "" {
 		transport = client.configProxy(transport)
 	}
 	client.httpclient = &http.Client{
 		Transport: transport,
 	}
+	if client.baseURL == "" {
+		client.baseURL = baseURL
+	}
 	return client
 }
 
-//Returns a singleton
+// Returns a singleton
 func GetClient(apiKey, secretKey string, options ...Option) *Client {
 	if clientImpl != nil {
 		return clientImpl
 	}
 	clientImpl = initClient(apiKey, secretKey, options...)
 	return clientImpl
+}
+
+func (c *Client) toAPIEndpoint(endpoint string) string {
+	return fmt.Sprintf("%s/%s", c.baseURL, endpoint)
 }
 
 func (c *Client) useInsecureHTTPClient(insecure bool) *http.Transport {
@@ -105,7 +119,7 @@ func (c *Client) useInsecureHTTPClient(insecure bool) *http.Transport {
 }
 
 func (c *Client) configProxy(transport *http.Transport) *http.Transport {
-	pUrl, err := url.Parse(c.proxyurl)
+	pUrl, err := url.Parse(c.proxyURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -119,9 +133,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
-
-	resp, err := c.doRequestWithRateLimit("POST", url, jsonPayload)
+	resp, err := c.doRequestWithRateLimit("POST", c.toAPIEndpoint(endpoint), jsonPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +157,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 }
 
 func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
-
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
-	resp, err := c.doRequestWithRateLimit("GET", url, nil)
+	resp, err := c.doRequestWithRateLimit("GET", c.toAPIEndpoint(endpoint), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -173,9 +183,8 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 	if err != nil {
 		return nil, err
 	}
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 
-	resp, err := c.doRequestWithRateLimit("PUT", url, jsonPayload)
+	resp, err := c.doRequestWithRateLimit("PUT", c.toAPIEndpoint(endpoint), jsonPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -204,10 +213,9 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 }
 
 func (c *Client) Delete(endpoint string) error {
-	url := fmt.Sprintf("%s%s", BaseURL, endpoint)
 	var resp *http.Response
 
-	resp, err := c.doRequestWithRateLimit("DELETE", url, nil)
+	resp, err := c.doRequestWithRateLimit("DELETE", c.toAPIEndpoint(endpoint), nil)
 	if err != nil {
 		return err
 	}
@@ -261,12 +269,12 @@ func (c *Client) PrepareModel(obj models.Model) (*container.Container, error) {
 }
 
 func getToken(apikey, secretkey string) string {
-	//epoch time in milliseconds
+	// Epoch time in milliseconds
 	loc, _ := tz.LoadLocation("GMT")
 	now := time.Now().In(loc)
 	time := now.Format("Mon, 2 Jan 2006 15:04:05 MST")
 
-	//generates hmac from secret key
+	// Generates hmac from secret key
 	h := hmac.New(sha1.New, []byte(secretkey))
 	h.Write([]byte(time))
 	sha := hex.EncodeToString(h.Sum(nil))
@@ -298,7 +306,7 @@ func (c *Client) doRequestWithRateLimit(method, endpoint string, con *container.
 		requestsRemaining, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining"))
 		if (err != nil) || (resp.StatusCode == 400 || resp.StatusCode == 404) && requestsRemaining == 0 {
 			log.Println("waiting until more API calls can be done")
-			time.Sleep(time.Duration(SleepDuration) * time.Second)
+			time.Sleep(time.Duration(sleepDuration) * time.Second)
 			continue
 		}
 		time.Sleep(time.Duration(100) * time.Millisecond)
