@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -39,7 +39,7 @@ type Client struct {
 // Singleton implementation of a client
 var clientImpl *Client
 
-// Get first
+// Option for the client
 type Option func(*Client)
 
 func Insecure(insecure bool) Option {
@@ -85,7 +85,7 @@ func initClient(apiKey, secretKey string, options ...Option) *Client {
 	return client
 }
 
-// Returns a singleton
+// GetClient Returns a singleton
 func GetClient(apiKey, secretKey string, options ...Option) *Client {
 	if clientImpl != nil {
 		return clientImpl
@@ -139,7 +139,7 @@ func (c *Client) Save(obj models.Model, endpoint string) (*container.Container, 
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func (c *Client) GetbyId(endpoint string) (*container.Container, error) {
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	respObj, err := container.ParseJSON(bodyBytes)
 	if err != nil {
@@ -194,7 +194,7 @@ func (c *Client) Update(obj models.Model, endpoint string) (*container.Container
 		return nil, nil
 	}
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func (c *Client) Delete(endpoint string) error {
 	if resp.StatusCode == 200 {
 		return nil
 	}
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	respObj, err := container.ParseJSON(bodyBytes)
 	if err != nil {
@@ -268,18 +268,16 @@ func (c *Client) PrepareModel(obj models.Model) (*container.Container, error) {
 	return payload, nil
 }
 
-func getToken(apikey, secretkey string) string {
+func getToken(secretKey string) string {
 	// Epoch time in milliseconds
 	loc, _ := tz.LoadLocation("GMT")
 	now := time.Now().In(loc)
-	time := now.Format("Mon, 2 Jan 2006 15:04:05 MST")
+	timestamp := now.Format("Mon, 2 Jan 2006 15:04:05 MST")
 
 	// Generates hmac from secret key
-	h := hmac.New(sha1.New, []byte(secretkey))
-	h.Write([]byte(time))
-	sha := hex.EncodeToString(h.Sum(nil))
-
-	return string(sha)
+	h := hmac.New(sha1.New, []byte(secretKey))
+	h.Write([]byte(timestamp))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (c *Client) doRequestWithRateLimit(method, endpoint string, con *container.Container) (*http.Response, error) {
@@ -327,15 +325,15 @@ func (c *Client) makeRequest(method, endpoint string, con *container.Container) 
 		return nil, err
 	}
 
-	hmac := getToken(c.apiKey, c.secretKey)
+	hash := getToken(c.secretKey)
 	loc, _ := tz.LoadLocation("GMT")
 	now := time.Now().In(loc)
-	time := now.Format("Mon, 2 Jan 2006 15:04:05 MST")
+	timestamp := now.Format("Mon, 2 Jan 2006 15:04:05 MST")
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-dnsme-hmac", hmac)
+	req.Header.Set("x-dnsme-hmac", hash)
 	req.Header.Set("x-dnsme-apiKey", c.apiKey)
-	req.Header.Set("x-dnsme-requestDate", time)
+	req.Header.Set("x-dnsme-requestDate", timestamp)
 
 	return req, nil
 }
