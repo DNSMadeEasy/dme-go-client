@@ -321,11 +321,15 @@ func (c *Client) doRequestWithRateLimit(method, endpoint string, con *container.
 
 		// DO
 		resp, err = c.httpclient.Do(req)
+		if err != nil {
+			log.Println(err)
+			return nil, err
+		}
 		logRequest(req, resp)
 
 		// Retry If Rate Limit is reached
 		requestsRemaining, _ := strconv.Atoi(resp.Header.Get("x-dnsme-requestsRemaining"))
-		if (err != nil) || (resp.StatusCode == 400 || resp.StatusCode == 404) && requestsRemaining == 0 {
+		if (resp.StatusCode == 400 || resp.StatusCode == 404) && requestsRemaining == 0 {
 			log.Println("waiting until more API calls can be done")
 			time.Sleep(time.Duration(sleepDuration) * time.Second)
 			continue
