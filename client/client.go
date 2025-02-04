@@ -57,8 +57,24 @@ func ProxyURL(proxyURL string) Option {
 
 func BaseURL(baseURL string) Option {
 	return func(client *Client) {
-		client.baseURL = strings.TrimRight(baseURL, "/")
+		client.baseURL = sanitizeURL(baseURL)
 	}
+}
+
+func sanitizeURL(rawUrl string) string {
+	// Remove leading/trailing white spaces.
+	trimmedUrl := strings.TrimSpace(rawUrl)
+	// Remove trailing slashes.
+	trimmedUrl = strings.TrimRight(trimmedUrl, "/")
+	if trimmedUrl == "" {
+		return ""
+	}
+
+	// If no scheme is present, prepend "https://"
+	if !strings.Contains(trimmedUrl, "://") {
+		trimmedUrl = "https://" + trimmedUrl
+	}
+	return trimmedUrl
 }
 
 func initClient(apiKey, secretKey string, options ...Option) *Client {

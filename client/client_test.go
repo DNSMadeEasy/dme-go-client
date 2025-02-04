@@ -75,7 +75,7 @@ func TestGetClient(t *testing.T) {
 		assert.Equal(t, "https://api.dnsmadeeasy.com/V2.0", cl.baseURL)
 	})
 
-	t.Run("should accept base url with single trailing '/'", func(t *testing.T) {
+	t.Run("should sanitize base url with single trailing '/'", func(t *testing.T) {
 		resetClient()
 		apiKey := "testApiKey"
 		secretKey := "testSecretKey"
@@ -91,7 +91,7 @@ func TestGetClient(t *testing.T) {
 		assert.Equal(t, "https://custom.api.with-trailing-slash.com", cl.baseURL)
 	})
 
-	t.Run("should accept base url with multiple trailing '////'", func(t *testing.T) {
+	t.Run("should sanitize base url with multiple trailing '////'", func(t *testing.T) {
 		resetClient()
 		apiKey := "testApiKey"
 		secretKey := "testSecretKey"
@@ -105,5 +105,21 @@ func TestGetClient(t *testing.T) {
 
 		assert.NotNil(t, cl)
 		assert.Equal(t, "https://custom.api.with-trailing-slash.com", cl.baseURL)
+	})
+
+	t.Run("should sanitize url with leading/trailing white spaces, missing protocol and trailing slash", func(t *testing.T) {
+		resetClient()
+		apiKey := "testApiKey"
+		secretKey := "testSecretKey"
+		customBaseURL := "   custom.api.com////   "
+
+		cl := GetClient(
+			apiKey,
+			secretKey,
+			BaseURL(customBaseURL),
+		)
+
+		assert.NotNil(t, cl)
+		assert.Equal(t, "https://custom.api.com", cl.baseURL)
 	})
 }
